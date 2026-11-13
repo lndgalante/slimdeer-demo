@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "jsPlugins": ["oxlint-plugin-pngdeer"],
+  "jsPlugins": ["oxlint-plugin-slimdeer"],
   "rules": {
-    "pngdeer/compressible-image": "warn"
+    "slimdeer/compressible-image": "warn"
   }
 }
