@@ -1,0 +1,95 @@
+# .github/workflows/first-visitor.yml
+# What a first visitor types, on machines that have never seen the package:
+# the published oxlint-plugin-slimdeer through npx, in a folder with two heavy images.
+name: First-visitor run
+on:
+  push:
+    branches: [first-visitor-run]
+permissions:
+  contents: read
+jobs:
+  run:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: shop
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: A folder with two heavy images and the code that names them
+        working-directory: .
+        shell: bash
+        run: |
+          mkdir -p shop/public shop/src
+          base=https://raw.githubusercontent.com/lndgalante/oxlint-plugin-slimdeer/main/example/public
+          curl -fsSL -o shop/public/hero.png "$base/hero.png"
+          curl -fsSL -o shop/public/photo.jpg "$base/photo.jpg"
+          printf 'export default function App() {\n  return (\n    <main>\n      <img src="/hero.png" alt="" />\n      <img src="/photo.jpg" alt="" />\n    </main>\n  );\n}\n' > shop/src/App.jsx
+          ls -l shop/public
+          node --version && npm --version
+      - name: --version, first download
+        shell: bash
+        run: time npx -y oxlint-plugin-slimdeer@latest --version
+      - name: --check lists both images and exits 1
+        shell: bash
+        run: |
+          set +e
+          time npx -y oxlint-plugin-slimdeer@latest --check > ../check.txt 2>&1
+          code=$?
+          cat ../check.txt
+          echo "exit code: $code"
+          test "$code" = 1 && grep -q '^public/hero.png: could be' ../check.txt && grep -q '^public/photo.jpg: could be' ../check.txt
+      - name: --check in PowerShell
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          npx -y oxlint-plugin-slimdeer@latest --check
+          Write-Host "exit code: $LASTEXITCODE"
+          if ($LASTEXITCODE -ne 1) { exit 1 } else { exit 0 }
+      - name: --check in cmd
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call npx -y oxlint-plugin-slimdeer@latest --check
+          echo exit code: %ERRORLEVEL%
+          if %ERRORLEVEL% NEQ 1 exit /b 1
+          exit /b 0
+      - name: --review writes the page
+        shell: bash
+        run: |
+          set +e
+          time npx -y oxlint-plugin-slimdeer@latest --review > ../review.txt 2>&1
+          code=$?
+          cat ../review.txt
+          echo "exit code: $code"
+          ls -l node_modules/.cache/slimdeer/review/
+          test "$code" = 0 && test -s node_modules/.cache/slimdeer/review/index.html || exit 1
+          grep -c 'npx oxlint-plugin-slimdeer' node_modules/.cache/slimdeer/review/index.html
+      - name: --check --format webp
+        shell: bash
+        run: |
+          set +e
+          time npx -y oxlint-plugin-slimdeer@latest --check --format webp > ../webp.txt 2>&1
+          code=$?
+          cat ../webp.txt
+          echo "exit code: $code"
+          test "$code" = 1 && grep -q 'as WebP' ../webp.txt
+      - name: Shrink one image in place
+        shell: bash
+        run: |
+          before=$(wc -c < public/hero.png)
+          time npx -y oxlint-plugin-slimdeer@latest public/hero.png
+          after=$(wc -c < public/hero.png)
+          echo "public/hero.png: $before -> $after bytes"
+          test "$after" -lt "$before"
+      - name: The check after the shrink
+        shell: bash
+        run: |
+          set +e
+          npx -y oxlint-plugin-slimdeer@latest --check
+          echo "exit code: $?"
